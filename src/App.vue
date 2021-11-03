@@ -31,8 +31,11 @@ const keyLengthDisplay = computed(() =>
     ? keyLength.value
     : keyLength.value + "（不安全）"
 );
-// 由此带来的块大小
+// 根据密钥长度进行分块，每一块的大小
 let blockSize = 95;
+// 分块后每一块生成的密文长度（十进制）
+// 不会超过 [log2 * N] + 1
+let cipherSize = Math.floor(Math.log10(2) * 768) + 1;
 // 生成时间
 const keyGenTime = ref(0);
 
@@ -52,6 +55,7 @@ function genKeyPair() {
   ) as PrivateKeyDisplay;
   // 计算加密时每一块能容纳的最大字符数
   blockSize = Number(keyLength.value) / 8 - 1;
+  cipherSize = Math.floor(Math.log10(2) * Number(keyLength.value)) + 1;
   // 步骤条 + 1
   nextStep();
 }
@@ -79,7 +83,10 @@ function encrypt() {
   const start = performance.now();
   for (let i = 0; i < blockNums; i++) {
     const plainTextBlock = plainText.value.substr(i * blockSize, blockSize);
-    textBlocks[i] = RSA.encrypt(plainTextBlock, pubKey).toString();
+    // 如果不满足每一块的长度，在最前面补 0
+    textBlocks[i] = RSA.encrypt(plainTextBlock, pubKey)
+      .toString()
+      .padStart(cipherSize, "0");
   }
   plainTextAfterEncrypt.value = textBlocks.join("");
   const end = performance.now();
@@ -90,17 +97,23 @@ function encrypt() {
 }
 
 // 解密
-// TODO: 处理分块解密
 function decrypt() {
-  const start = performance.now();
-  cipherTextAfterDecrypt.value = RSA.decrypt(
-    BigInt(cipherText.value),
-    prvKey,
-    pubKey
-  );
-  const end = performance.now();
-  decryptTime.value = end - start;
+  const blockNums = Math.ceil(cipherText.value.length / cipherSize);
+  const textBlocks = Array<string>(blockNums);
 
+  // 分块解密，计算时间
+  const start = performance.now();
+  for (let i = 0; i < blockNums; i++) {
+    // 去掉最前面补位的 0
+    const cipherTextBlock = cipherText.value
+      .substr(i * cipherSize, cipherSize)
+      .replace(/^0+/, "");
+    textBlocks[i] = RSA.decrypt(BigInt(cipherTextBlock), prvKey, pubKey);
+  }
+  cipherTextAfterDecrypt.value = textBlocks.join("");
+  const end = performance.now();
+
+  decryptTime.value = end - start;
   showCipherTextAfterDecrypt.value = true;
 }
 </script>
@@ -150,7 +163,7 @@ function decrypt() {
       <el-form-item label="生成用时">
         <span class="line-wrap">{{ keyGenTime }} ms</span>
       </el-form-item>
-
+      <!--加密-->
       <el-divider>加 密</el-divider>
       <el-input
         v-model="plainText"
@@ -174,7 +187,7 @@ function decrypt() {
           >加密</el-button
         >
       </el-form-item>
-
+      <!--解密-->
       <el-divider>解 密</el-divider>
       <el-input
         v-model="cipherText"
