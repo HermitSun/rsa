@@ -31,6 +31,8 @@ const keyLengthDisplay = computed(() =>
     ? keyLength.value
     : keyLength.value + "（不安全）"
 );
+// 由此带来的块大小
+let blockSize = 95;
 // 生成时间
 const keyGenTime = ref(0);
 
@@ -48,16 +50,20 @@ function genKeyPair() {
   prvKeyDisplay.value = Object.fromEntries(
     Object.entries(prvKey).map(([k, v]) => [k, v.toString()])
   ) as PrivateKeyDisplay;
+  // 计算加密时每一块能容纳的最大字符数
+  blockSize = Number(keyLength.value) / 8 - 1;
+  // 步骤条 + 1
   nextStep();
 }
 
 // 加解密
+// 明文
 const plainText = ref("");
 const plainTextAfterEncrypt = ref("");
 const showPlainTextAfterEncrypt = ref(false);
 // 加密用时
 const encryptTime = ref(0);
-
+// 密文
 const cipherText = ref("");
 const cipherTextAfterDecrypt = ref("");
 const showCipherTextAfterDecrypt = ref(false);
@@ -65,16 +71,24 @@ const showCipherTextAfterDecrypt = ref(false);
 const decryptTime = ref(0);
 
 // 加密
-// TODO: 处理分块加密
 function encrypt() {
-  const start = performance.now();
-  plainTextAfterEncrypt.value = RSA.encrypt(plainText.value, pubKey).toString();
-  const end = performance.now();
-  encryptTime.value = end - start;
+  const blockNums = Math.ceil(plainText.value.length / blockSize);
+  const textBlocks = Array<string>(blockNums);
 
+  // 分块加密，计算时间
+  const start = performance.now();
+  for (let i = 0; i < blockNums; i++) {
+    const plainTextBlock = plainText.value.substr(i * blockSize, blockSize);
+    textBlocks[i] = RSA.encrypt(plainTextBlock, pubKey).toString();
+  }
+  plainTextAfterEncrypt.value = textBlocks.join("");
+  const end = performance.now();
+
+  encryptTime.value = end - start;
   showPlainTextAfterEncrypt.value = true;
   cipherText.value = plainTextAfterEncrypt.value;
 }
+
 // 解密
 // TODO: 处理分块解密
 function decrypt() {

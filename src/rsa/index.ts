@@ -32,7 +32,8 @@ function genKeyPair(l: number, e = 65537n): [PublicKey, PrivateKey] {
 
 /**
  * 字符串加密，
- * 长度为 1024 位的密钥可以加密 127 字节的字符串，按比例推算，但是为什么呢？
+ * 长度为 1024 位的密钥可以加密 127 字节的字符串（有时候最后一位会有错误）
+ * 但是理论上只能加密 84 字节的
  * @param s 字符串
  * @param pubKey RSA 公钥
  */
