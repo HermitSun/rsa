@@ -142,10 +142,10 @@ function decrypt() {
     <el-form v-else-if="step === 1" label-width="70px">
       <el-form-item label="密钥长度">{{ keyLengthDisplay }} </el-form-item>
       <el-form-item label="公钥内容">
-        <span class="line-wrap">{{ pubKeyDisplay.n }}</span>
+        <span class="line-wrap">{{ pubKeyDisplay?.n }}</span>
       </el-form-item>
       <el-form-item label="私钥内容">
-        <span class="line-wrap">{{ prvKeyDisplay.d }}</span>
+        <span class="line-wrap">{{ prvKeyDisplay?.d }}</span>
       </el-form-item>
       <el-form-item label="生成用时">
         <span class="line-wrap">{{ keyGenTime }} ms</span>
