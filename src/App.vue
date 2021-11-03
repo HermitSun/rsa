@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import RSA, { PrivateKey, PublicKey } from "./rsa";
+import RSA, { PrivateKey, PublicKey, RSAKeyPair } from "./rsa";
+import RSAKeyWorker from "./workers/keyworker?worker";
 
+// 类型定义
 type PublicKeyDisplay = Record<keyof PublicKey, string>;
 type PrivateKeyDisplay = Record<keyof PrivateKey, string>;
 
@@ -16,13 +18,14 @@ function nextStep() {
 function resetStep() {
   step.value = 0;
 }
+// 加载动画
+const loading = ref(false);
 
 // 公私钥
 let pubKey: PublicKey;
 let prvKey: PrivateKey;
 const pubKeyDisplay = ref<PublicKeyDisplay>();
 const prvKeyDisplay = ref<PrivateKeyDisplay>();
-
 // 密钥长度
 const keyLengthOptions = ref(["256", "512", "768", "1024", "2048"]);
 const keyLength = ref("768");
@@ -41,21 +44,31 @@ const keyGenTime = ref(0);
 
 // 生成密钥
 function genKeyPair() {
+  // 使用 worker 生成密钥，避免主线程卡顿
+  // 如果不采用 worker，加载动画会无法显示
+  const worker = new RSAKeyWorker();
+  loading.value = true;
+  // 计时
   const start = performance.now();
-  [pubKey, prvKey] = RSA.genKeyPair(Number(keyLength.value));
-  const end = performance.now();
-  keyGenTime.value = end - start;
-  // 手动进行序列化
-  // CHECKME: JSON 序列化大整数的时候啥时候整出来啊？
-  pubKeyDisplay.value = Object.fromEntries(
-    Object.entries(pubKey).map(([k, v]) => [k, v.toString()])
-  ) as PublicKeyDisplay;
-  prvKeyDisplay.value = Object.fromEntries(
-    Object.entries(prvKey).map(([k, v]) => [k, v.toString()])
-  ) as PrivateKeyDisplay;
-  // 计算加密时每一块能容纳的最大字符数
-  blockSize = Number(keyLength.value) / 8 - 1;
-  cipherSize = Math.floor(Math.log10(2) * Number(keyLength.value)) + 1;
+  worker.postMessage(Number(keyLength.value));
+  worker.onmessage = (e: MessageEvent<RSAKeyPair>) => {
+    [pubKey, prvKey] = e.data;
+    const end = performance.now();
+    keyGenTime.value = end - start;
+    // 手动进行序列化
+    // CHECKME: JSON 序列化大整数的时候啥时候整出来啊？
+    pubKeyDisplay.value = Object.fromEntries(
+      Object.entries(pubKey).map(([k, v]) => [k, v.toString()])
+    ) as PublicKeyDisplay;
+    prvKeyDisplay.value = Object.fromEntries(
+      Object.entries(prvKey).map(([k, v]) => [k, v.toString()])
+    ) as PrivateKeyDisplay;
+    // 计算加密时每一块能容纳的最大字符数
+    blockSize = Number(keyLength.value) / 8 - 1;
+    cipherSize = Math.floor(Math.log10(2) * Number(keyLength.value)) + 1;
+    // 取消加载动画
+    loading.value = false;
+  };
   // 步骤条 + 1
   nextStep();
 }
@@ -119,7 +132,7 @@ function decrypt() {
 </script>
 
 <template>
-  <el-card style="margin: 0 auto">
+  <el-card v-loading.lock="loading" style="margin: 0 auto">
     <!--当前进度-->
     <template #header>
       <el-steps :active="step" finish-status="success">

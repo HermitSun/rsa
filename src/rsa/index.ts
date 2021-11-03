@@ -12,6 +12,8 @@ export interface PrivateKey {
   d: bigint;
 }
 
+export type RSAKeyPair = [PublicKey, PrivateKey];
+
 /**
  * 生成 RSA 公私钥
  * 在实践中 e = 3 or e = 65537
@@ -19,7 +21,7 @@ export interface PrivateKey {
  * @param l 密钥位数
  * @param e
  */
-function genKeyPair(l: number, e = 65537n): [PublicKey, PrivateKey] {
+function genKeyPair(l: number, e = 65537n): RSAKeyPair {
   const pL = l >> 1;
   const qL = l - pL;
   const p = BigPrime.randomPrimeBits(pL),
