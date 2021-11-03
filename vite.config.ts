@@ -9,9 +9,9 @@ export default defineConfig({
     target: "esnext",
   },
   plugins: [
-    vue(),
     Components({
       resolvers: [ElementPlusResolver()],
     }),
+    vue(),
   ],
 });
